@@ -22,8 +22,27 @@ script:
 
 branches:
   only:
-  - master
+  - travis
 matrix:
   fast_finish: true
   allow_failures:
   - go: tip
+
+before_deploy:
+  - GOOS=linux go build -o terraform-provider-ccloud_${TRAVIS_TAG}_linux
+  - GOOS=darwin go build -o terraform-provider-ccloud_${TRAVIS_TAG}_darwin
+  - GOOS=windows go build -o terraform-provider-ccloud_${TRAVIS_TAG}_windows.exe
+
+deploy:
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: Idf+PsvFBRHQGmvP5C6jVf1SxDzv1CjKjoY1oCXZfGcUATSzKPhznyR7+QGBfauEAcudUufQwYk3l9336RNBUG3+MqqIPJc0JcHnDT4MMUktTeYgbzGhFTOXy6UuA163GgxaujtbAJGbH3VsXcMAeZ1Isj5Glzq/4iZFZ1gTMAgi9FwWR/HgMilvzSrYgvuTvM/ayhj+597n5cjT2zLHcqxA2UfVJvSMm3YFJZl2ukX9k9Ru3J+OD0ybh7ZHTZKz+ezIxeqMpSt745WuvHCDyT4egynCtaj+Odu2wuxxbkDz5u17WTciRpVn7FuTLx6y2hyZM2njcNVctPrLrwY1SM9OUjVRi/f5dM7bathRJMYPRpsrcWQPVNEuC0CfFc3u9kgxhja5F7sNfX+CMkLqrqr2h3lbmd1btsp1se6t4o4YA+fNZOjJiZrCuTsI0K/v6JiLrTiz/uUpjYnU/xMiPJ5UIFgX7nRbrxb+U1k5U5eICFB7ppFoSNZAJHqjTc+IUpKwljnL41Z4ljRl/vQuVRQY4EnNH1H7665bF2RqoKZibVItQQq/4hbKn8E38saZsF6UjoTJ7Zmgz6gWxxlZXq831ldeXkLHn8GmnMugsJ43gPWrJIe0NEx/ghttepJ1NFYCNO3WloJHDJ3VN5tVGBVKw+euHD0Ezzn/AXaogfk=
+  file:
+  - terraform-provider-ccloud_${TRAVIS_TAG}_linux
+  - terraform-provider-ccloud_${TRAVIS_TAG}_darwin
+  - terraform-provider-ccloud_${TRAVIS_TAG}_windows.exe
+  on:
+    repo: sapcc/terraform-provider-ccloud
+    tags: true
+    condition: $LATEST = true
