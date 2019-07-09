@@ -16,6 +16,71 @@ import (
 )
 
 func resourceCCloudKubernetesV1() *schema.Resource {
+
+	// transition between "node_pools" to "node_pool" rename
+	nodePool := &schema.Resource{
+		Schema: map[string]*schema.Schema{
+			"name": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: kubernikusValidatePoolName,
+			},
+			"flavor": {
+				Type:         schema.TypeString,
+				Required:     true,
+				ValidateFunc: validation.NoZeroValues,
+			},
+			"image": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validation.NoZeroValues,
+			},
+			"size": {
+				Type:         schema.TypeInt,
+				Optional:     true,
+				Default:      0,
+				ValidateFunc: validation.IntBetween(0, 127),
+			},
+			"availability_zone": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				ValidateFunc: validation.NoZeroValues,
+			},
+			"taints": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"labels": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem:     &schema.Schema{Type: schema.TypeString},
+			},
+			"config": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Computed: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"allow_reboot": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Computed: true,
+						},
+						"allow_replace": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+	}
+
 	return &schema.Resource{
 		SchemaVersion: 1,
 
@@ -107,70 +172,18 @@ func resourceCCloudKubernetesV1() *schema.Resource {
 			},
 
 			"node_pools": {
-				Type:     schema.TypeList,
-				Optional: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						"name": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: kubernikusValidatePoolName,
-						},
-						"flavor": {
-							Type:         schema.TypeString,
-							Required:     true,
-							ValidateFunc: validation.NoZeroValues,
-						},
-						"image": {
-							Type:         schema.TypeString,
-							Optional:     true,
-							Computed:     true,
-							ValidateFunc: validation.NoZeroValues,
-						},
-						"size": {
-							Type:         schema.TypeInt,
-							Optional:     true,
-							Default:      0,
-							ValidateFunc: validation.IntBetween(0, 127),
-						},
-						"availability_zone": {
-							Type:         schema.TypeString,
-							Optional:     true,
-							Computed:     true,
-							ValidateFunc: validation.NoZeroValues,
-						},
-						"taints": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem:     &schema.Schema{Type: schema.TypeString},
-						},
-						"labels": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem:     &schema.Schema{Type: schema.TypeString},
-						},
-						"config": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Computed: true,
-							MaxItems: 1,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"allow_reboot": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Computed: true,
-									},
-									"allow_replace": {
-										Type:     schema.TypeBool,
-										Optional: true,
-										Computed: true,
-									},
-								},
-							},
-						},
-					},
-				},
+				Type:          schema.TypeList,
+				Optional:      true,
+				ConflictsWith: []string{"node_pool"},
+				Deprecated:    "use node_pool instead",
+				Elem:          nodePool,
+			},
+
+			"node_pool": {
+				Type:          schema.TypeList,
+				Optional:      true,
+				ConflictsWith: []string{"node_pools"},
+				Elem:          nodePool,
 			},
 
 			"openstack": {
@@ -312,6 +325,14 @@ func resourceCCloudKubernetesV1Create(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return err
 	}
+
+	if len(cluster.Spec.NodePools) == 0 {
+		cluster.Spec.NodePools, err = kubernikusExpandNodePoolsV1(d.Get("node_pool"))
+		if err != nil {
+			return err
+		}
+	}
+
 	if v := kubernikusExpandOpenstackSpecV1(d.Get("openstack")); v != nil {
 		cluster.Spec.Openstack = *v
 	}
@@ -436,6 +457,17 @@ func resourceCCloudKubernetesV1Update(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return kubernikusHandleErrorV1("Error waiting for cluster to be updated", err)
 	}
+
+	o, n = d.GetChange("node_pool")
+
+	// wait for the cluster to be upgraded, when new API version was specified
+	target := "Running"
+	pending := []string{"Pending", "Creating", "Terminating", "Upgrading"}
+	err = kubernikusUpdateNodePoolsV1(klient, cluster, o, n, target, pending, timeout)
+	if err != nil {
+		return kubernikusHandleErrorV1("Error waiting for cluster to be updated", err)
+	}
+
 
 	return resourceCCloudKubernetesV1Read(d, meta)
 }
