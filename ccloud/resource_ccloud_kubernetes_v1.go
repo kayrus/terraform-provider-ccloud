@@ -448,16 +448,6 @@ func resourceCCloudKubernetesV1Update(d *schema.ResourceData, meta interface{}) 
 		cluster.Spec.Openstack.SecurityGroupName = v.(string)
 	}
 
-	o, n := d.GetChange("node_pools")
-
-	// wait for the cluster to be upgraded, when new API version was specified
-	target := "Running"
-	pending := []string{"Pending", "Creating", "Terminating", "Upgrading"}
-	err = kubernikusUpdateNodePoolsV1(klient, cluster, o, n, target, pending, timeout)
-	if err != nil {
-		return kubernikusHandleErrorV1("Error waiting for cluster to be updated", err)
-	}
-
 	o, n = d.GetChange("node_pool")
 
 	// wait for the cluster to be upgraded, when new API version was specified
@@ -467,7 +457,6 @@ func resourceCCloudKubernetesV1Update(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return kubernikusHandleErrorV1("Error waiting for cluster to be updated", err)
 	}
-
 
 	return resourceCCloudKubernetesV1Read(d, meta)
 }
