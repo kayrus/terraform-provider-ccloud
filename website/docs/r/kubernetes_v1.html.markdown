@@ -28,7 +28,7 @@ resource "ccloud_kubernetes_v1" "demo" {
   name           = "demo"
   ssh_public_key = "ssh-rsa AAAABHTmDMP6w=="
 
-  node_pools {
+  node_pool {
     name              = "payload0"
     flavor            = "m1.xlarge_cpu"
     size              = 2
@@ -37,7 +37,7 @@ resource "ccloud_kubernetes_v1" "demo" {
     labels            = ["label=value"]
   }
 
-  node_pools {
+  node_pool {
     name              = "payload1"
     flavor            = "m1.xlarge_cpu"
     size              = 1
@@ -81,7 +81,7 @@ resource "ccloud_kubernetes_v1" "demo" {
     security_group_name    = "default"
   }
 
-  node_pools {
+  node_pool {
     name              = "payload0"
     flavor            = "m1.xlarge_cpu"
     size              = 2
@@ -137,15 +137,17 @@ The following arguments are supported:
 
 * `version` - (Optional) The version of the Kubernetes master.
 
-* `node_pools` - (Optional) The list of Kubernetes node pools (worker pools).
-  The `node_pools` object structure is documented below.
+* `node_pools` - (**Deprecated** - use `node_pool` instead)
+
+* `node_pool` - (Optional) The list of Kubernetes node pools (worker pools).
+  The `node_pool` object structure is documented below.
 
 * `openstack` - (Optional) The advanced Openstack options. Required, when
   Kubernikus cannot automatically detect network settings, e.g. when multiple
   networks and routers are available. The `openstack` object structure is
   documented below.
 
-The `node_pools` block supports:
+The `node_pool` block supports:
 
 * `name` - (Required) The unique node pool name. Changing this forces a new node
   pool to be created.
@@ -221,6 +223,7 @@ In addition to all arguments above, the following attributes are exported:
 * `dns_domain` - See Argument Reference above.
 * `ssh_public_key` - See Argument Reference above.
 * `node_pools` - See Argument Reference above.
+* `node_pool` - See Argument Reference above.
 * `openstack` - See Argument Reference above.
 * `version` - See Argument Reference above.
 * `phase` - The Kubernikus cluster current status. Can either be `Pending`,
